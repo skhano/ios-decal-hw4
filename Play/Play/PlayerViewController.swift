@@ -16,6 +16,7 @@ class PlayerViewController: UIViewController {
     var currentIndex: Int!
     var player: AVPlayer!
     var trackImageView: UIImageView!
+    var playing: Bool!
     
     var playPauseButton: UIButton!
     var nextButton: UIButton!
@@ -24,17 +25,27 @@ class PlayerViewController: UIViewController {
     var artistLabel: UILabel!
     var titleLabel: UILabel!
     
+    var playImage: UIImage!
+    var pauseImage: UIImage!
+    var nextImage: UIImage!
+    var previousImage: UIImage!
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         view = UIView(frame: UIScreen.mainScreen().bounds)
         view.backgroundColor = UIColor.whiteColor()
+        
+        playImage = UIImage(named: "play")?.imageWithRenderingMode(.AlwaysTemplate)
+        pauseImage = UIImage(named: "pause")?.imageWithRenderingMode(.AlwaysTemplate)
+        nextImage = UIImage(named: "next")?.imageWithRenderingMode(.AlwaysTemplate)
+        previousImage = UIImage(named: "previous")?.imageWithRenderingMode(.AlwaysTemplate)
 
         scAPI = SoundCloudAPI()
         scAPI.loadTracks(didLoadTracks)
         currentIndex = 0
         
         player = AVPlayer()
-        
+        playing = false
         loadVisualElements()
         loadPlayerButtons()
     }
@@ -44,7 +55,7 @@ class PlayerViewController: UIViewController {
         let height = UIScreen.mainScreen().bounds.size.height
         let offset = height - width
         
-    
+
         trackImageView = UIImageView(frame: CGRect(x: 0.0, y: 0.0,
             width: width, height: width))
         trackImageView.contentMode = UIViewContentMode.ScaleAspectFill
@@ -69,11 +80,6 @@ class PlayerViewController: UIViewController {
         let height = UIScreen.mainScreen().bounds.size.height
         let offset = height - width
     
-        let playImage = UIImage(named: "play")?.imageWithRenderingMode(.AlwaysTemplate)
-        let pauseImage = UIImage(named: "pause")?.imageWithRenderingMode(.AlwaysTemplate)
-        let nextImage = UIImage(named: "next")?.imageWithRenderingMode(.AlwaysTemplate)
-        let previousImage = UIImage(named: "previous")?.imageWithRenderingMode(.AlwaysTemplate)
-        
         playPauseButton = UIButton(type: UIButtonType.Custom)
         playPauseButton.frame = CGRectMake(width / 2.0 - width / 30.0,
                                            width + offset * 0.5,
@@ -104,7 +110,6 @@ class PlayerViewController: UIViewController {
         nextButton.addTarget(self, action: "nextTrackTapped:",
             forControlEvents: UIControlEvents.TouchUpInside)
         view.addSubview(nextButton)
-
     }
 
     
@@ -129,18 +134,46 @@ class PlayerViewController: UIViewController {
         let clientID = NSDictionary(contentsOfFile: path!)?.valueForKey("client_id") as! String
         let track = tracks[currentIndex]
         let url = NSURL(string: "https://api.soundcloud.com/tracks/\(track.id)/stream?client_id=\(clientID)")!
-        // FILL ME IN
-    
+        
+        if player.currentItem == nil {
+            let song = AVPlayerItem(URL: url)
+            player = AVPlayer(playerItem: song)
+        }
+        
+        if !(playing) {
+            player.play()
+            playPauseButton.setImage(pauseImage, forState: .Normal)
+            playing = true
+        } else {
+            player.pause()
+            playPauseButton.setImage(playImage, forState: .Normal)
+            playing = false
+        }
     }
     
-    /* 
+    /*
      * Called when the next button is tapped. It should check if there is a next
      * track, and if so it will load the next track's data and
      * automatically play the song if a song is already playing
      * Remember to update the currentIndex
      */
     func nextTrackTapped(sender: UIButton) {
-    
+        if (currentIndex + 1 >= tracks.count) {
+            return
+        }
+        
+        currentIndex = currentIndex + 1
+        let path = NSBundle.mainBundle().pathForResource("Info", ofType: "plist")
+        let clientID = NSDictionary(contentsOfFile: path!)?.valueForKey("client_id") as! String
+        let track = tracks[currentIndex]
+        let url = NSURL(string: "https://api.soundcloud.com/tracks/\(track.id)/stream?client_id=\(clientID)")!
+
+        let song = AVPlayerItem(URL: url)
+        player.replaceCurrentItemWithPlayerItem(song)
+        if (playing!) {
+            player.play()
+        }
+        loadTrackElements()
     }
 
     /*
@@ -154,7 +187,22 @@ class PlayerViewController: UIViewController {
      */
 
     func previousTrackTapped(sender: UIButton) {
-    
+        if (Float(self.player.currentTime().value) / Float(self.player.currentTime().timescale)) > 3.0 || currentIndex <= 0 {
+            player.seekToTime(CMTime(seconds: 0, preferredTimescale: 1))
+        } else {
+            currentIndex = currentIndex - 1
+            loadTrackElements()
+            let rate = player.rate
+            let path = NSBundle.mainBundle().pathForResource("Info", ofType: "plist")
+            let clientID = NSDictionary(contentsOfFile: path!)?.valueForKey("client_id") as! String
+            let track = tracks[currentIndex]
+            let url = NSURL(string: "https://api.soundcloud.com/tracks/\(track.id)/stream?client_id=\(clientID)")!
+            let song = AVPlayerItem(URL: url)
+            player = AVPlayer(playerItem: song)
+            if rate != 0 {
+                player.play()
+            }
+        }
     }
     
     
